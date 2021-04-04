@@ -1,14 +1,17 @@
 package com.example.mnmwear;
 
 import android.Manifest;
+import android.content.Context;
 import android.content.pm.PackageManager;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.media.MediaRecorder;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
+import android.provider.MediaStore;
 import android.support.wearable.activity.WearableActivity;
 import android.util.EventLog;
 import android.util.Log;
@@ -21,24 +24,24 @@ import androidx.annotation.NonNull;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
+import com.google.android.gms.tasks.Task;
 import com.google.android.gms.wearable.Asset;
+import com.google.android.gms.wearable.DataItem;
+import com.google.android.gms.wearable.PutDataRequest;
+import com.google.android.gms.wearable.Wearable;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 
 public class MainActivity extends WearableActivity {
+    Context context = null;
 
     Button btnRecord, btnStop, btnInd;
-    EditText etFilename;
+    EditText etFilenameInput;
     MediaRecorder mediaRecorder;
-    File RootFolder, AudioFile, MotionFile;
-    private FileWriter writer;
-
-//    private SensorManager mSensorManager;
-//    private Sensor mAccelerometer;
-//    String accData;
-//    private Sensor mGyroscope;
+    File RootFolder, AudioFile;
 
     public static final String LOG_TAG = "WatchRecordingDevice";
     public static final int REQUEST_AUDIO_AND_FILE_WRITE_PERMISSION_CODE = 200;
@@ -52,12 +55,6 @@ public class MainActivity extends WearableActivity {
     //    final int REQUEST_PERMISSION_CODE = 1000; REMOVED
     final int audioSampleRate = 22050;
 
-    // choose values of 6.25, 12.5, 25, 50, 100, 200 Hz only
-    // any value in between get promoted to higher sampling freq
-//    final float motionFrequency = 200.0f;
-//    private int sampleTime;
-//    long prev_ts=0;
-
     @Override
     // App events to be completed upon creation (main)
     protected void onCreate(Bundle savedInstanceState) {
@@ -67,20 +64,16 @@ public class MainActivity extends WearableActivity {
         // Enables Always-on
         setAmbientEnabled();
 
+        context = getApplicationContext();
+        Log.d(LOG_TAG, "Fake logging.");
         if (!checkPermissonFromDeviceGranted())
             requestAudioRecordingPermission();
         folderCheck();
 
-//        sampleTime = (int) (1000000.0 / motionFrequency);
-
         btnRecord = (Button) findViewById(R.id.btnRecord);
         btnStop = (Button) findViewById(R.id.btnStop);
         btnInd = (Button) findViewById(R.id.btnInd);
-        etFilename = (EditText) findViewById(R.id.etFilename);
-
-//        mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
-//        mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
-//        mGyroscope = mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
+        etFilenameInput = (EditText) findViewById(R.id.etFilename);
 
         btnStop.setEnabled(false);
 
@@ -92,24 +85,23 @@ public class MainActivity extends WearableActivity {
                     @Override
                     public void run() {
                         if (fileCheck()) {
-//                            motionFileWriter();
                             setupMediaRecorder();
                             try {
                                 mediaRecorder.prepare();
                                 mediaRecorder.start();
+                                Log.d(LOG_TAG, "Successfully started media recorder.");
                             } catch (IOException e) {
+                                Log.d(LOG_TAG, "Failed to start media recorder.");
                                 e.printStackTrace();
                             }
 
-//                            mSensorManager.registerListener(MainActivity.this, mAccelerometer, sampleTime);
-//                            mSensorManager.registerListener(MainActivity.this, mGyroscope, sampleTime);
-
                             runOnUiThread(new Runnable() {
                                 public void run() {
-                                    etFilename.setEnabled(false);
+                                    etFilenameInput.setEnabled(false);
                                     btnStop.setEnabled(true);
                                     btnRecord.setEnabled(false);
                                     btnInd.setBackground(getDrawable(R.drawable.indicator_r));
+                                    Log.d(LOG_TAG, "Recording audio...");
                                     Toast.makeText(MainActivity.this, "Recording...", Toast.LENGTH_SHORT).show();
                                 }
                             });
@@ -124,18 +116,11 @@ public class MainActivity extends WearableActivity {
             @Override
             public void onClick(View view) {
                 mediaRecorder.stop();
-//                mSensorManager.unregisterListener(MainActivity.this);
                 btnStop.setEnabled(false);
                 btnRecord.setEnabled(true);
-                etFilename.setEnabled(true);
+                etFilenameInput.setEnabled(true);
                 btnInd.setBackground(getDrawable(R.drawable.indicator_g));
-                try {
-                    if (writer != null) {
-                        writer.close();
-                    }
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
+                Log.d(LOG_TAG, "Finished recording audio.");
             }
         });
     }
@@ -149,11 +134,13 @@ public class MainActivity extends WearableActivity {
         mediaRecorder.setAudioEncodingBitRate(128000);
         mediaRecorder.setAudioSamplingRate(audioSampleRate);
         mediaRecorder.setOutputFile(AudioFile);
+        Log.d(LOG_TAG, "Completed media recorder setup.");
     }
 
     // Request permission to record audio and write to files
     private void requestAudioRecordingPermission() {
         ActivityCompat.requestPermissions(this, permissions, REQUEST_AUDIO_AND_FILE_WRITE_PERMISSION_CODE);
+        Log.d(LOG_TAG, "Permissions previously not met. Requesting audio and file write permissions.");
     }
 
     @Override
@@ -163,11 +150,13 @@ public class MainActivity extends WearableActivity {
         switch (requestCode) {
             case REQUEST_AUDIO_AND_FILE_WRITE_PERMISSION_CODE:
                 // Confirm both permissions granted
-                if (grantResults.length == 2 && grantResults[0] == PackageManager.PERMISSION_GRANTED && grantResults[1] == PackageManager.PERMISSION_GRANTED)
+                if (grantResults.length == 2 && grantResults[0] == PackageManager.PERMISSION_GRANTED && grantResults[1] == PackageManager.PERMISSION_GRANTED) {
                     Toast.makeText(this, "Permission Granted", Toast.LENGTH_SHORT).show();
-                else {
+                    Log.d(LOG_TAG, "Audio and file write permission granted.");
+                } else {
                     // TODO: Fix to better user experience (https://developer.android.com/training/permissions/requesting#handle-denial)
                     Toast.makeText(this, "Permission Denied, EXITING APP", Toast.LENGTH_SHORT).show();
+                    Log.d(LOG_TAG, "Permission denied... Exiting app...");
                     System.exit(0);
                 }
                 break;
@@ -180,6 +169,7 @@ public class MainActivity extends WearableActivity {
     private boolean checkPermissonFromDeviceGranted() {
         int write_external_storage_permission = ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE);
         int record_audio_permission = ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO);
+        Log.d(LOG_TAG, "Checking device permissions.");
         return (write_external_storage_permission == PackageManager.PERMISSION_GRANTED) && (record_audio_permission == PackageManager.PERMISSION_GRANTED);
     }
 
@@ -190,71 +180,44 @@ public class MainActivity extends WearableActivity {
         Log.d(LOG_TAG, "To see audio output, navigate to sdcard/AudioMotionData/");
 
         if (!RootFolder.exists()) {
+            Log.d(LOG_TAG, "Directory: sdcard/AudioMotionData does not yet exist.");
             boolean success = RootFolder.mkdirs();
             if (success) {
+                Log.d(LOG_TAG, "Created directory: sdcard/AudioMotionData/.");
                 Toast.makeText(MainActivity.this, "Made folder!", Toast.LENGTH_SHORT).show();
-            }
-            else
-                Toast.makeText(MainActivity.this, "Folder failed!", Toast.LENGTH_SHORT).show();
+            } else
+                Log.d(LOG_TAG, "Failed to create directory: sdcard/AudioMotionData/.");
+            Toast.makeText(MainActivity.this, "Folder failed!", Toast.LENGTH_SHORT).show();
         }
     }
 
     // Check for valid file name
     private boolean fileCheck() {
-        String fname = etFilename.getText().toString();
+        String fname = etFilenameInput.getText().toString();
         if (fname.equals("")) {
             runOnUiThread(new Runnable() {
                 public void run() {
                     Toast.makeText(MainActivity.this, "No name!", Toast.LENGTH_SHORT).show();
                 }
             });
+            Log.d(LOG_TAG, "No text input for new file name.");
             return false;
         }
-        System.out.println(RootFolder.getAbsolutePath());
         AudioFile = new File(RootFolder.getAbsolutePath()
                 + File.separator + fname + ".mp3");
-//        MotionFile = new File(RootFolder.getAbsolutePath()
-//                + File.separator + fname + ".csv");
 
-        if (AudioFile.exists() /*|| MotionFile.exists()*/) {
+        if (AudioFile.exists()) {
             runOnUiThread(new Runnable() {
                 public void run() {
                     Toast.makeText(MainActivity.this, "File exists!", Toast.LENGTH_SHORT).show();
                 }
             });
+            Log.d(LOG_TAG, "Text input for file name: \"" + fname + ".mp3\" matches existing file.");
             return false;
-        } else
+        } else {
+            Log.d(LOG_TAG, "Created file: \"" + RootFolder.getAbsolutePath()
+                    + File.separator + fname + ".mp3\"");
             return true;
+        }
     }
-
-//    // Assign writer for motion CSV file output
-//    private void motionFileWriter() {
-//        try {
-//            writer = new FileWriter(MotionFile, true);
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//        }
-//    }
-
-//    @Override
-//    // Assign current sensor data from accelerometer and gyroscope
-//    public void onSensorChanged(SensorEvent sensorEvent) {
-//        if (sensorEvent.sensor == mAccelerometer) {
-//            accData = String.format("%.3f", sensorEvent.values[0]) + "," + String.format("%.3f", sensorEvent.values[1]) + "," + String.format("%.3f", sensorEvent.values[2]) + ",";
-////            Log.d("acc", "ts : " + (sensorEvent.timestamp-prev_ts)/1000);
-////            prev_ts = sensorEvent.timestamp;
-//        } else if (sensorEvent.sensor == mGyroscope) {
-//            String gyroData = String.format("%.3f", sensorEvent.values[0]) + "," + String.format("%.3f", sensorEvent.values[1]) + "," + String.format("%.3f", sensorEvent.values[2]) + "\n";
-//            try {
-//                writer.write(accData + gyroData);
-//            } catch (IOException e) {
-//                e.printStackTrace();
-//            }
-//        }
-//    }
-
-//    @Override
-//    public void onAccuracyChanged(Sensor sensor, int i) {
-//
-//    }
 }
