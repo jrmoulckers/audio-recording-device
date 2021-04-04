@@ -50,6 +50,14 @@ public class MainActivity extends WearableActivity {
         // Enables Always-on
         setAmbientEnabled();
 
+        // 1. Grant Permissions
+        ungrantedPermissions = new HashMap<>();
+        for(String permission : permissions) {
+            if(!checkPermission(permission)) {
+
+            }
+        }
+
         context = getApplicationContext();
         if (!checkPermissonFromDeviceGranted())
             requestAudioRecordingPermission();
