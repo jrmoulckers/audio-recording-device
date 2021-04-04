@@ -51,11 +51,11 @@ public class MainActivity extends WearableActivity {
         setAmbientEnabled();
 
         // 1. Grant Permissions
-        ungrantedPermissions = new HashMap<>();
+//        ungrantedPermissions = new HashMap<>();
         for(String permission : permissions) {
-            if(!checkPermission(permission)) {
-
-            }
+//            if(!checkPermission(permission)) {
+//
+//            }
         }
 
         context = getApplicationContext();
