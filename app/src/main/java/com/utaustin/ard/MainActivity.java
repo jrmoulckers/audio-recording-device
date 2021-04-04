@@ -1,4 +1,4 @@
-package com.example.mnmwear;
+package com.utaustin.ard;
 
 import android.Manifest;
 import android.content.Context;
@@ -121,6 +121,7 @@ public class MainActivity extends WearableActivity {
                 etFilenameInput.setEnabled(true);
                 btnInd.setBackground(getDrawable(R.drawable.indicator_g));
                 Log.d(LOG_TAG, "Finished recording audio.");
+//                sendAudioToPhone();
             }
         });
     }
@@ -220,4 +221,19 @@ public class MainActivity extends WearableActivity {
             return true;
         }
     }
+
+//    private void sendAudioToPhone() {
+//        Asset asset = null;
+//        try {
+//            FileOutputStream fos = new FileOutputStream(AudioFile);
+//            asset = Asset.createFromUri(Uri.parse(AudioFile.toURI().toString()));
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//            System.exit(1);
+//        }
+//
+//        PutDataRequest req = PutDataRequest.create("/audio");
+//        req.putAsset("audio-file", asset);
+//        Task<DataItem> putTask = Wearable.getDataClient(context).putDataItem(req);
+//    }
 }
