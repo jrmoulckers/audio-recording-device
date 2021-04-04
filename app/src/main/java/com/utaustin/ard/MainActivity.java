@@ -21,6 +21,8 @@ import com.utaustin.ard.constants.Constants;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 
 public class MainActivity extends WearableActivity {
     Context context = null;
@@ -38,6 +40,8 @@ public class MainActivity extends WearableActivity {
             Manifest.permission.RECORD_AUDIO
     };
 
+    private Map<String, Integer> ungrantedPermissions;
+
     //    final int REQUEST_PERMISSION_CODE = 1000; REMOVED
     final int audioSampleRate = 22050;
 
@@ -49,6 +53,14 @@ public class MainActivity extends WearableActivity {
 
         // Enables Always-on
         setAmbientEnabled();
+
+        // 1. Grant Permissions
+        ungrantedPermissions = new HashMap<>();
+        for(String permission : permissions) {
+//            if(!checkPermission(permission)) {
+//
+//            }
+        }
 
         context = getApplicationContext();
         Log.d(Constants.DEBUG_MAIN, "Fake logging.");
