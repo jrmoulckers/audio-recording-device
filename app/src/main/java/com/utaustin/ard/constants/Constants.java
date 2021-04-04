@@ -16,5 +16,6 @@ public class Constants {
 
     public static final String DEBUG_MAIN = "ARD-MainActivity";
     public static final String DEBUG_OTS = "ARD-OfflineTransferService";
+    public static final String DEBUG_OTA = "ARD-OfflineTransferActivity";
     public static final String DEBUG_PERMISSIONS = "ARD-Permissions";
 }

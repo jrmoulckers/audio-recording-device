@@ -6,6 +6,7 @@ import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.net.ConnectivityManager;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
 import android.os.IBinder;
@@ -14,15 +15,29 @@ import android.util.Log;
 
 import androidx.annotation.Nullable;
 
+import com.google.android.gms.tasks.Task;
+import com.google.android.gms.tasks.Tasks;
+import com.google.android.gms.wearable.CapabilityClient;
+import com.google.android.gms.wearable.ChannelClient;
+import com.google.android.gms.wearable.Node;
+import com.google.android.gms.wearable.Wearable;
 import com.utaustin.ard.constants.Constants;
 import com.utaustin.ard.util.Permissions;
 
 import java.io.File;
 import java.security.Permission;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
-
+// TODO: REMOVE ME!!! See https://medium.com/@shoaibsaikat/using-android-channelclient-f5b4fd346374 for base logic
 public class OfflineTransferService extends Service {
     private static final String DEBUG = Constants.DEBUG_OTS;
+
+    // Unique name for audio data channel
+    private static final String CHANNEL_MSG = "com.utaustin.ard.network.ots.audio";
+
+    private Set<String> connectedDevices;
 
     private File[] transferFiles;
 
@@ -34,6 +49,10 @@ public class OfflineTransferService extends Service {
     public void onCreate() {
         super.onCreate();
         Log.d(DEBUG, "File upload service -> Offline File Transfer");
+
+        setConnectedDeviceList();
+        Wearable.getCapabilityClient(getApplicationContext()).addListener(this, Uri.parse("wear://"), CapabilityClient.FILTER_REACHABLE);
+        Task<ChannelClient.Channel> outChannelTask = Wearable.getChannelClient(getApplicationContext()).openChannel(node, )
 
         if(Permissions.isAllPermissionGranted(getApplicationContext())) {
             // TODO: Add conditional offline/online functionality
@@ -94,6 +113,21 @@ public class OfflineTransferService extends Service {
             alarmManager.set(AlarmManager.RTC_WAKEUP, SystemClock.elapsedRealtime() + ALARM_INTERVAL, pendingIntent);
         }
 
+    }
+
+    // Set connected list of devices for application
+    private void setConnectedDeviceList() {
+        connectedDevices = new HashSet<>();
+
+        Task<List<Node>> nodeListTask = Wearable.getNodeClient(getApplicationContext()).getConnectedNodes();
+        try {
+            List<Node> nodes = Tasks.await(nodeListTask);
+            for(Node n : nodes) {
+                connectedDevices.add(n.getId());
+            }
+        } catch(Exception e) {
+            e.printStackTrace();
+        }
     }
 
 }
