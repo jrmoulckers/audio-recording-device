@@ -51,7 +51,6 @@ public class MainActivity extends WearableActivity {
         setAmbientEnabled();
 
         context = getApplicationContext();
-        Log.d(Constants.DEBUG_MAIN, "Fake logging.");
         if (!checkPermissonFromDeviceGranted())
             requestAudioRecordingPermission();
         folderCheck();
