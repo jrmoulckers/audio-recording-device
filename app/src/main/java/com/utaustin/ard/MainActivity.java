@@ -3,17 +3,10 @@ package com.utaustin.ard;
 import android.Manifest;
 import android.content.Context;
 import android.content.pm.PackageManager;
-import android.hardware.Sensor;
-import android.hardware.SensorEvent;
-import android.hardware.SensorEventListener;
-import android.hardware.SensorManager;
 import android.media.MediaRecorder;
-import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
-import android.provider.MediaStore;
 import android.support.wearable.activity.WearableActivity;
-import android.util.EventLog;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
@@ -24,16 +17,12 @@ import androidx.annotation.NonNull;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
-import com.google.android.gms.tasks.Task;
-import com.google.android.gms.wearable.Asset;
-import com.google.android.gms.wearable.DataItem;
-import com.google.android.gms.wearable.PutDataRequest;
-import com.google.android.gms.wearable.Wearable;
+import com.utaustin.ard.constants.Constants;
 
 import java.io.File;
-import java.io.FileOutputStream;
-import java.io.FileWriter;
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 
 public class MainActivity extends WearableActivity {
     Context context = null;
@@ -43,7 +32,6 @@ public class MainActivity extends WearableActivity {
     MediaRecorder mediaRecorder;
     File RootFolder, AudioFile;
 
-    public static final String LOG_TAG = "WatchRecordingDevice";
     public static final int REQUEST_AUDIO_AND_FILE_WRITE_PERMISSION_CODE = 200;
 
     // Permissions for writing to file and recording audio
@@ -51,6 +39,8 @@ public class MainActivity extends WearableActivity {
             Manifest.permission.WRITE_EXTERNAL_STORAGE,
             Manifest.permission.RECORD_AUDIO
     };
+
+    private Map<String, Integer> ungrantedPermissions;
 
     //    final int REQUEST_PERMISSION_CODE = 1000; REMOVED
     final int audioSampleRate = 22050;
@@ -65,7 +55,7 @@ public class MainActivity extends WearableActivity {
         setAmbientEnabled();
 
         context = getApplicationContext();
-        Log.d(LOG_TAG, "Fake logging.");
+        Log.d(Constants.DEBUG_MAIN, "Fake logging.");
         if (!checkPermissonFromDeviceGranted())
             requestAudioRecordingPermission();
         folderCheck();
@@ -89,9 +79,9 @@ public class MainActivity extends WearableActivity {
                             try {
                                 mediaRecorder.prepare();
                                 mediaRecorder.start();
-                                Log.d(LOG_TAG, "Successfully started media recorder.");
+                                Log.d(Constants.DEBUG_MAIN, "Successfully started media recorder.");
                             } catch (IOException e) {
-                                Log.d(LOG_TAG, "Failed to start media recorder.");
+                                Log.d(Constants.DEBUG_MAIN, "Failed to start media recorder.");
                                 e.printStackTrace();
                             }
 
@@ -101,7 +91,7 @@ public class MainActivity extends WearableActivity {
                                     btnStop.setEnabled(true);
                                     btnRecord.setEnabled(false);
                                     btnInd.setBackground(getDrawable(R.drawable.indicator_r));
-                                    Log.d(LOG_TAG, "Recording audio...");
+                                    Log.d(Constants.DEBUG_MAIN, "Recording audio...");
                                     Toast.makeText(MainActivity.this, "Recording...", Toast.LENGTH_SHORT).show();
                                 }
                             });
@@ -120,8 +110,7 @@ public class MainActivity extends WearableActivity {
                 btnRecord.setEnabled(true);
                 etFilenameInput.setEnabled(true);
                 btnInd.setBackground(getDrawable(R.drawable.indicator_g));
-                Log.d(LOG_TAG, "Finished recording audio.");
-//                sendAudioToPhone();
+                Log.d(Constants.DEBUG_MAIN, "Finished recording audio.");
             }
         });
     }
@@ -135,13 +124,13 @@ public class MainActivity extends WearableActivity {
         mediaRecorder.setAudioEncodingBitRate(128000);
         mediaRecorder.setAudioSamplingRate(audioSampleRate);
         mediaRecorder.setOutputFile(AudioFile);
-        Log.d(LOG_TAG, "Completed media recorder setup.");
+        Log.d(Constants.DEBUG_MAIN, "Completed media recorder setup.");
     }
 
     // Request permission to record audio and write to files
     private void requestAudioRecordingPermission() {
         ActivityCompat.requestPermissions(this, permissions, REQUEST_AUDIO_AND_FILE_WRITE_PERMISSION_CODE);
-        Log.d(LOG_TAG, "Permissions previously not met. Requesting audio and file write permissions.");
+        Log.d(Constants.DEBUG_MAIN, "Permissions previously not met. Requesting audio and file write permissions.");
     }
 
     @Override
@@ -153,11 +142,11 @@ public class MainActivity extends WearableActivity {
                 // Confirm both permissions granted
                 if (grantResults.length == 2 && grantResults[0] == PackageManager.PERMISSION_GRANTED && grantResults[1] == PackageManager.PERMISSION_GRANTED) {
                     Toast.makeText(this, "Permission Granted", Toast.LENGTH_SHORT).show();
-                    Log.d(LOG_TAG, "Audio and file write permission granted.");
+                    Log.d(Constants.DEBUG_MAIN, "Audio and file write permission granted.");
                 } else {
                     // TODO: Fix to better user experience (https://developer.android.com/training/permissions/requesting#handle-denial)
                     Toast.makeText(this, "Permission Denied, EXITING APP", Toast.LENGTH_SHORT).show();
-                    Log.d(LOG_TAG, "Permission denied... Exiting app...");
+                    Log.d(Constants.DEBUG_MAIN, "Permission denied... Exiting app...");
                     System.exit(0);
                 }
                 break;
@@ -170,24 +159,24 @@ public class MainActivity extends WearableActivity {
     private boolean checkPermissonFromDeviceGranted() {
         int write_external_storage_permission = ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE);
         int record_audio_permission = ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO);
-        Log.d(LOG_TAG, "Checking device permissions.");
+        Log.d(Constants.DEBUG_MAIN, "Checking device permissions.");
         return (write_external_storage_permission == PackageManager.PERMISSION_GRANTED) && (record_audio_permission == PackageManager.PERMISSION_GRANTED);
     }
 
     // Create audio output folder if it does not yet exist
     private void folderCheck() {
         RootFolder = new File(Environment.getExternalStorageDirectory().getAbsolutePath()
-                + File.separator + "AudioMotionData");
-        Log.d(LOG_TAG, "To see audio output, navigate to sdcard/AudioMotionData/");
+                + File.separator + Constants.ROOT_DIR);
+        Log.d(Constants.DEBUG_MAIN, "To see audio output, navigate to sdcard/AudioRecordingData/");
 
         if (!RootFolder.exists()) {
-            Log.d(LOG_TAG, "Directory: sdcard/AudioMotionData does not yet exist.");
+            Log.d(Constants.DEBUG_MAIN, "Directory: " + File.separator + Constants.ROOT_DIR + " does not yet exist.");
             boolean success = RootFolder.mkdirs();
             if (success) {
-                Log.d(LOG_TAG, "Created directory: sdcard/AudioMotionData/.");
+                Log.d(Constants.DEBUG_MAIN, "Created directory: " + File.separator + Constants.ROOT_DIR + ".");
                 Toast.makeText(MainActivity.this, "Made folder!", Toast.LENGTH_SHORT).show();
             } else
-                Log.d(LOG_TAG, "Failed to create directory: sdcard/AudioMotionData/.");
+                Log.d(Constants.DEBUG_MAIN, "Failed to create directory: " + File.separator + Constants.ROOT_DIR + ".");
             Toast.makeText(MainActivity.this, "Folder failed!", Toast.LENGTH_SHORT).show();
         }
     }
@@ -201,7 +190,7 @@ public class MainActivity extends WearableActivity {
                     Toast.makeText(MainActivity.this, "No name!", Toast.LENGTH_SHORT).show();
                 }
             });
-            Log.d(LOG_TAG, "No text input for new file name.");
+            Log.d(Constants.DEBUG_MAIN, "No text input for new file name.");
             return false;
         }
         AudioFile = new File(RootFolder.getAbsolutePath()
@@ -213,27 +202,12 @@ public class MainActivity extends WearableActivity {
                     Toast.makeText(MainActivity.this, "File exists!", Toast.LENGTH_SHORT).show();
                 }
             });
-            Log.d(LOG_TAG, "Text input for file name: \"" + fname + ".mp3\" matches existing file.");
+            Log.d(Constants.DEBUG_MAIN, "Text input for file name: \"" + fname + ".mp3\" matches existing file.");
             return false;
         } else {
-            Log.d(LOG_TAG, "Created file: \"" + RootFolder.getAbsolutePath()
+            Log.d(Constants.DEBUG_MAIN, "Created file: \"" + RootFolder.getAbsolutePath()
                     + File.separator + fname + ".mp3\"");
             return true;
         }
     }
-
-//    private void sendAudioToPhone() {
-//        Asset asset = null;
-//        try {
-//            FileOutputStream fos = new FileOutputStream(AudioFile);
-//            asset = Asset.createFromUri(Uri.parse(AudioFile.toURI().toString()));
-//        } catch (Exception e) {
-//            e.printStackTrace();
-//            System.exit(1);
-//        }
-//
-//        PutDataRequest req = PutDataRequest.create("/audio");
-//        req.putAsset("audio-file", asset);
-//        Task<DataItem> putTask = Wearable.getDataClient(context).putDataItem(req);
-//    }
 }

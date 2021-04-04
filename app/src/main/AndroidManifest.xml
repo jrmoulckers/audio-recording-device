@@ -35,6 +35,11 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <service
+            android:name="com.utaustin.ard.network.OfflineTransferService"
+            android:enabled="true" />
+
     </application>
 
 </manifest>

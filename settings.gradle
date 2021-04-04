@@ -1,2 +1,2 @@
 include ':app'
-rootProject.name='Audio Recording Device'
+rootProject.name='AudioRecordingDevice'
