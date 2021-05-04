@@ -8,7 +8,7 @@ import android.util.Log;
 
 import com.utaustin.ard.constants.Constants;
 
-public class Permissions {
+public class PermissionsUtils {
     private static final String DEBUG = Constants.DEBUG_PERMISSIONS;
 
     // Return whether or not all permissions are granted for the current context

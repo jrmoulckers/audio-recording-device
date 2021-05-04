@@ -2,6 +2,7 @@ package com.utaustin.ard;
 
 import android.Manifest;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.media.MediaRecorder;
 import android.os.Bundle;
@@ -18,11 +19,14 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
 import com.utaustin.ard.constants.Constants;
+import com.utaustin.ard.network.OfflineTransferService;
 
 import java.io.File;
 import java.io.IOException;
 
 public class MainActivity extends WearableActivity {
+    private static final String DEBUG = Constants.DEBUG_MAIN;
+
     Context context = null;
 
     Button btnRecord, btnStop, btnInd;
@@ -82,9 +86,9 @@ public class MainActivity extends WearableActivity {
                             try {
                                 mediaRecorder.prepare();
                                 mediaRecorder.start();
-                                Log.d(Constants.DEBUG_MAIN, "Successfully started media recorder.");
+                                Log.d(DEBUG, "Successfully started media recorder.");
                             } catch (IOException e) {
-                                Log.d(Constants.DEBUG_MAIN, "Failed to start media recorder.");
+                                Log.d(DEBUG, "Failed to start media recorder.");
                                 e.printStackTrace();
                             }
 
@@ -94,7 +98,7 @@ public class MainActivity extends WearableActivity {
                                     btnStop.setEnabled(true);
                                     btnRecord.setEnabled(false);
                                     btnInd.setBackground(getDrawable(R.drawable.indicator_r));
-                                    Log.d(Constants.DEBUG_MAIN, "Recording audio...");
+                                    Log.d(DEBUG, "Recording audio...");
                                     Toast.makeText(MainActivity.this, "Recording...", Toast.LENGTH_SHORT).show();
                                 }
                             });
@@ -103,6 +107,8 @@ public class MainActivity extends WearableActivity {
                 }).start();
             }
         });
+
+        startOfflineTransferService();
 
         // Stop recording audio
         btnStop.setOnClickListener(new View.OnClickListener() {
@@ -113,7 +119,7 @@ public class MainActivity extends WearableActivity {
                 btnRecord.setEnabled(true);
                 etFilenameInput.setEnabled(true);
                 btnInd.setBackground(getDrawable(R.drawable.indicator_g));
-                Log.d(Constants.DEBUG_MAIN, "Finished recording audio.");
+                Log.d(DEBUG, "Finished recording audio.");
             }
         });
     }
@@ -127,13 +133,13 @@ public class MainActivity extends WearableActivity {
         mediaRecorder.setAudioEncodingBitRate(128000);
         mediaRecorder.setAudioSamplingRate(audioSampleRate);
         mediaRecorder.setOutputFile(AudioFile);
-        Log.d(Constants.DEBUG_MAIN, "Completed media recorder setup.");
+        Log.d(DEBUG, "Completed media recorder setup.");
     }
 
     // Request permission to record audio and write to files
     private void requestAudioRecordingPermission() {
         ActivityCompat.requestPermissions(this, permissions, REQUEST_AUDIO_AND_FILE_WRITE_PERMISSION_CODE);
-        Log.d(Constants.DEBUG_MAIN, "Permissions previously not met. Requesting audio and file write permissions.");
+        Log.d(DEBUG, "Permissions previously not met. Requesting audio and file write permissions.");
     }
 
     @Override
@@ -145,11 +151,11 @@ public class MainActivity extends WearableActivity {
                 // Confirm both permissions granted
                 if (grantResults.length == 2 && grantResults[0] == PackageManager.PERMISSION_GRANTED && grantResults[1] == PackageManager.PERMISSION_GRANTED) {
                     Toast.makeText(this, "Permission Granted", Toast.LENGTH_SHORT).show();
-                    Log.d(Constants.DEBUG_MAIN, "Audio and file write permission granted.");
+                    Log.d(DEBUG, "Audio and file write permission granted.");
                 } else {
                     // TODO: Fix to better user experience (https://developer.android.com/training/permissions/requesting#handle-denial)
                     Toast.makeText(this, "Permission Denied, EXITING APP", Toast.LENGTH_SHORT).show();
-                    Log.d(Constants.DEBUG_MAIN, "Permission denied... Exiting app...");
+                    Log.d(DEBUG, "Permission denied... Exiting app...");
                     System.exit(0);
                 }
                 break;
@@ -162,7 +168,7 @@ public class MainActivity extends WearableActivity {
     private boolean checkPermissonFromDeviceGranted() {
         int write_external_storage_permission = ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE);
         int record_audio_permission = ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO);
-        Log.d(Constants.DEBUG_MAIN, "Checking device permissions.");
+        Log.d(DEBUG, "Checking device permissions.");
         return (write_external_storage_permission == PackageManager.PERMISSION_GRANTED) && (record_audio_permission == PackageManager.PERMISSION_GRANTED);
     }
 
@@ -170,16 +176,16 @@ public class MainActivity extends WearableActivity {
     private void folderCheck() {
         RootFolder = new File(Environment.getExternalStorageDirectory().getAbsolutePath()
                 + File.separator + Constants.ROOT_DIR);
-        Log.d(Constants.DEBUG_MAIN, "To see audio output, navigate to sdcard/AudioRecordingData/");
+        Log.d(DEBUG, "To see audio output, navigate to sdcard/AudioRecordingData/");
 
         if (!RootFolder.exists()) {
-            Log.d(Constants.DEBUG_MAIN, "Directory: " + File.separator + Constants.ROOT_DIR + " does not yet exist.");
+            Log.d(DEBUG, "Directory: " + File.separator + Constants.ROOT_DIR + " does not yet exist.");
             boolean success = RootFolder.mkdirs();
             if (success) {
-                Log.d(Constants.DEBUG_MAIN, "Created directory: " + File.separator + Constants.ROOT_DIR + ".");
+                Log.d(DEBUG, "Created directory: " + File.separator + Constants.ROOT_DIR + ".");
                 Toast.makeText(MainActivity.this, "Made folder!", Toast.LENGTH_SHORT).show();
             } else
-                Log.d(Constants.DEBUG_MAIN, "Failed to create directory: " + File.separator + Constants.ROOT_DIR + ".");
+                Log.d(DEBUG, "Failed to create directory: " + File.separator + Constants.ROOT_DIR + ".");
             Toast.makeText(MainActivity.this, "Folder failed!", Toast.LENGTH_SHORT).show();
         }
     }
@@ -193,7 +199,7 @@ public class MainActivity extends WearableActivity {
                     Toast.makeText(MainActivity.this, "No name!", Toast.LENGTH_SHORT).show();
                 }
             });
-            Log.d(Constants.DEBUG_MAIN, "No text input for new file name.");
+            Log.d(DEBUG, "No text input for new file name.");
             return false;
         }
         AudioFile = new File(RootFolder.getAbsolutePath()
@@ -205,12 +211,20 @@ public class MainActivity extends WearableActivity {
                     Toast.makeText(MainActivity.this, "File exists!", Toast.LENGTH_SHORT).show();
                 }
             });
-            Log.d(Constants.DEBUG_MAIN, "Text input for file name: \"" + fname + ".mp3\" matches existing file.");
+            Log.d(DEBUG, "Text input for file name: \"" + fname + ".mp3\" matches existing file.");
             return false;
         } else {
-            Log.d(Constants.DEBUG_MAIN, "Created file: \"" + RootFolder.getAbsolutePath()
+            Log.d(DEBUG, "Created file: \"" + RootFolder.getAbsolutePath()
                     + File.separator + fname + ".mp3\"");
             return true;
         }
+    }
+
+    // Begin offline phone transfer service
+    private void startOfflineTransferService() {
+        Log.d(DEBUG, "Begin offline phone transfer service");
+        Intent offlineTransferService = new Intent(getApplicationContext(), OfflineTransferService.class);
+        offlineTransferService.putExtra("audio_input_directory", RootFolder.getAbsolutePath());
+        getApplication().getApplicationContext().startService(offlineTransferService);
     }
 }
