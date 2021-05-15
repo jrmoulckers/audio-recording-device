@@ -1,7 +1,9 @@
 package com.utaustin.ard;
 
+import android.Manifest;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
@@ -9,14 +11,21 @@ import android.widget.Button;
 import android.widget.EditText;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.FragmentActivity;
 import androidx.lifecycle.Observer;
 import androidx.wear.ambient.AmbientModeSupport;
 
+import com.utaustin.ard.constants.Constants;
 import com.utaustin.ard.services.VADService;
 
+import java.lang.reflect.Array;
+import java.util.ArrayList;
+
 public class MainActivity extends FragmentActivity implements AmbientModeSupport.AmbientCallbackProvider {
-    private static final String TAG = "MainActivity";
+    private static final String TAG = Constants.DEBUG_MAIN;
+
+    private Context context = null;
 
     // UI Components
     private Button btnRecord, btnStop, btnInd;
@@ -28,41 +37,90 @@ public class MainActivity extends FragmentActivity implements AmbientModeSupport
     private MainActivityAmbientCallback mViewModel;
     private VADService mVADService;
 
+    private final int ALL_PERMISSIONS_CODE = 1;
+    private final String[] PERMISSIONS_NAMES = {
+            Manifest.permission.WRITE_EXTERNAL_STORAGE,
+            Manifest.permission.RECORD_AUDIO
+    };
+    private ArrayList<String> ungrantedPermissions;
+
     // Backend flags
     private boolean isVADServiceBound;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
         setContentView(R.layout.activity_main);
 
-        btnRecord = (Button) findViewById(R.id.btnRecord);
-        btnStop = (Button) findViewById(R.id.btnStop);
-        btnInd = (Button) findViewById(R.id.btnInd);
-        etFilenameInput = (EditText) findViewById(R.id.etFilename);
+        context = this.getApplicationContext();
 
-        mAmbientController = AmbientModeSupport.attach(this);
-        mViewModel = (MainActivityAmbientCallback) getAmbientCallback();
-        setObservers();
+//        checkPermissions();
 
-        btnRecord.setOnClickListener(new View.OnClickListener() {
-           @Override
-           public void onClick(View view) {
-               printText();
-           }
-        });
+        initServiceObservers();
+
+        initServices();
+
+        initUIComponents();
     }
 
     private void printText(){
         if(mVADService != null) {
             mVADService.mainLogic();
-            Log.d(TAG, "WE DID IT!!!");
+            Log.d(TAG, "printText: WE DID IT!!!");
+        } else {
+            Log.d(TAG, "printText: failed");
         }
     }
 
+    private void checkPermissions() {
+        if(ungrantedPermissions == null ) {
+            ungrantedPermissions = new ArrayList<>();
+
+            for (String permission : PERMISSIONS_NAMES) {
+                if (!checkPermission(permission)) {
+                    ungrantedPermissions.add(permission);
+                }
+            }
+        }
+
+        if(ungrantedPermissions.size() > 0) {
+            Log.d(TAG, "checkPermissions: Requesting permissions");
+            requestPermissions((String[]) ungrantedPermissions.toArray(), ALL_PERMISSIONS_CODE);
+        }
+    }
+
+    private boolean checkPermission(String permission) {
+        boolean granted = ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED;
+        Log.d(TAG, "checkPermission: Permission " + permission + (granted ? " GRANTED" : " DENIED"));
+        return granted;
+    }
+
+    private void initUIComponents() {
+        Log.d(TAG, "initUIComponents: Assigning all UI components");
+        btnRecord = (Button) findViewById(R.id.btnRecord);
+        btnStop = (Button) findViewById(R.id.btnStop);
+        btnInd = (Button) findViewById(R.id.btnInd);
+        etFilenameInput = (EditText) findViewById(R.id.etFilename);
+
+        Log.d(TAG, "initUIComponents: Assigning all UI listeners");
+        btnRecord.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                printText();
+            }
+        });
+    }
+
+    private void initServices() {
+        Log.d(TAG, "initServices: Initializing services");
+        startServices();
+    }
+
     // Set observers on services to monitor bound services
-    private void setObservers() {
+    private void initServiceObservers() {
+        Log.d(TAG, "initServiceObservers: Initializing service observers");
+        mAmbientController = AmbientModeSupport.attach(this);
+        mViewModel = (MainActivityAmbientCallback) getAmbientCallback();
         mViewModel.getBinder().observe(this, new Observer<VADService.VADServiceBinder>() {
             @Override
             public void onChanged(VADService.VADServiceBinder vsb) {
@@ -79,24 +137,28 @@ public class MainActivity extends FragmentActivity implements AmbientModeSupport
     @Override
     protected void onResume() {
         super.onResume();
+        Log.d(TAG, "onResume: restarting services");
         startServices();
     }
 
     @Override
     protected void onStop() {
         super.onStop();
+        Log.d(TAG, "onStop: unbinding services");
         if(mViewModel.getBinder() != null) {
             unbindService(mViewModel.getServiceConnection());
         }
     }
 
     private void startServices() {
+        Log.d(TAG, "startServices: starting all services");
         startVADService();
         bindServices();
     }
 
     private void startVADService() {
-        Intent serviceIntent = new Intent(this, VADService.class);
+        Log.d(TAG, "startVADService: Starting Voice Activity Detection Service");
+        Intent serviceIntent = new Intent(context, VADService.class);
         startService(serviceIntent);
     }
 
@@ -112,6 +174,23 @@ public class MainActivity extends FragmentActivity implements AmbientModeSupport
     @Override
     public AmbientModeSupport.AmbientCallback getAmbientCallback() {
         return new MainActivityAmbientCallback();
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        switch (requestCode) {
+            case ALL_PERMISSIONS_CODE: {
+                ungrantedPermissions = new ArrayList<>();
+                for(int p = 0; p < permissions.length; p++) {
+                    if(grantResults[p] != PackageManager.PERMISSION_GRANTED)
+                        ungrantedPermissions.add(permissions[p]);
+                }
+
+                if(ungrantedPermissions.size() > 0) {
+                    checkPermissions();
+                }
+            }
+        }
     }
 
 
